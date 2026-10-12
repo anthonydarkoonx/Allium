@@ -1,0 +1,15 @@
+# cargo-deny policy shared by Client/, Relays/ and Authority/.
+# Used by ci-check.sh:  cargo deny --config ../deny.toml check advisories sources
+
+[advisories]
+version = 2
+yanked = "deny"
+
+[sources]
+# Only crates.io is allowed (the Client's ../vendor is a `cargo vendor` copy
+# of crates.io releases, covered by vendor.sha256 and the re-vendor check in
+# ci-check.sh). Any git dependency or alternate registry fails the check.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
