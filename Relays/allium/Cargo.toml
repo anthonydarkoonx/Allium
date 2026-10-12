@@ -1,0 +1,71 @@
+[package]
+name = "allium"
+version = "0.1.0"
+edition = "2021"
+
+# NOTE (Dependency policy, 2026-09-25 update): the "no network access to
+# crates.io" constraint recorded here on 2026-09-20 no longer holds in
+# this environment -- `cargo build -p allium` successfully resolves and
+# compiles real crates.io dependencies. `keccak.rs` (SHA3-256/512,
+# SHAKE128/256) has accordingly been switched from a from-scratch
+# Keccak-f[1600]/sponge implementation (whose only SHAKE tests were
+# empty-input KATs, leaving the multi-block absorb path every real
+# mlkem.rs H/G/J call exercises completely untested) to a thin wrapper
+# over the real `sha3` crate. See `keccak.rs` for details.
+#
+# hashutil.rs (SHA-256/HMAC-SHA256/HKDF-SHA256/constant-time compare) has
+# likewise been switched from hand-rolled implementations to thin wrappers
+# over the real `sha2`/`hmac`/`hkdf`/`subtle` crates -- these were used in
+# several security-critical paths (session-key derivation, handshake/cell
+# MAC verification, ML-KEM's implicit-rejection compare). See hashutil.rs.
+#
+# tokio (Phase 4, added for stream.rs/relay.rs/exit.rs/socksproxy.rs):
+# Python's asyncio-based event loop maps to tokio's multi-threaded runtime.
+# `features = ["full"]` per PORT_BRIEF.md's async conventions -- these
+# modules need net (UdpSocket/TcpStream), time (sleep/timeout), sync
+# (Mutex), and task (spawn/JoinHandle) at minimum, and "full" is simplest to
+# reason about across several async modules landing in the same batch. Like
+# the crypto crates above, this cannot be fetched in this sandbox, so every
+# tokio-touching function in this batch is "written but unverified pending
+# real cargo build" (see PROGRESS.md).
+[dependencies]
+aes-gcm = "0.10"
+chacha20poly1305 = "0.10"
+# SHA3-256/512 + SHAKE128/256 for mlkem.rs's FIPS 203 H/G/J/PRF functions
+# (see the dependency-policy note above). 0.10.x has Shake128/Shake256
+# built in directly (later versions split XOFs into a separate `shake`
+# crate), and 0.10's `digest` major version matches what aes-gcm/
+# chacha20poly1305 0.10 already pull in, avoiding a second `digest`
+# major version in the dependency graph.
+sha3 = "0.10"
+# SHA-256/HMAC-SHA256/HKDF-SHA256 for hashutil.rs (see the dependency-
+# policy note above). 0.10/0.12 track the same `digest` 0.10 major version
+# as sha3/aes-gcm/chacha20poly1305 above, again avoiding a second `digest`
+# major version in the dependency graph.
+sha2 = "0.10"
+hmac = "0.12"
+hkdf = "0.12"
+# Constant-time slice comparison for hashutil::constant_time_eq -- already
+# a transitive dependency (via curve25519-dalek), added directly here since
+# hashutil.rs now uses it explicitly instead of a hand-rolled XOR-accumulate loop.
+subtle = "2.6"
+# Security audit fix (2026-09-26): already a transitive dependency (via
+# dalek-cryptography/aes-gcm, which zeroize their own internal state),
+# added directly here so this crate's own long-lived key material --
+# session AEAD/MAC keys, per-hop layer keys, and relay/service identity
+# private keys -- is wiped on drop too, not just the third-party crates'.
+zeroize = "1"
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
+tokio = { version = "1", features = ["full"] }
+# Needed only to set SO_REUSEADDR / SO_REUSEPORT / SO_RCVBUF on the UDP
+# socket in relay.rs::make_socket (mirrors Python's _make_socket); tokio's
+# UdpSocket::bind has no hook for any of these on its own.
+#
+# `features = ["all"]` is required for `set_reuse_port`: socket2 gates
+# platform-specific options (SO_REUSEPORT is not available on every OS
+# socket2 supports) behind this feature, unlike `set_reuse_address`, which
+# ships in the default feature set. Without it, `Socket::set_reuse_port`
+# does not exist and the crate fails to compile (E0599).
+socket2 = { version = "0.5", features = ["all"] }

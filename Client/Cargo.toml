@@ -1,0 +1,71 @@
+[package]
+name = "allium"
+version = "0.2.1"
+edition = "2021"
+rust-version = "1.85"
+description = "Allium -- a custom UDP-based onion routing protocol (Rust port)"
+license = "See repository for license terms."
+
+[lib]
+name = "allium"
+path = "src/lib.rs"
+
+[[bin]]
+name = "allium"
+path = "src/bin/allium_cli/main.rs"
+
+[dependencies]
+# AEAD ciphers (real RustCrypto crates; published crates.io releases, vendored
+# into ../vendor by `cargo vendor` -- see .cargo/config.toml).
+aes-gcm = { version = "0.11.1", default-features = false, features = ["aes", "alloc"] }
+chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["alloc"] }
+
+# Hashing / KDF / MAC.
+sha2 = { version = "0.11.0", default-features = false }
+sha3 = { version = "0.12.0", default-features = false }
+blake2 = { version = "0.11.0", default-features = false }
+hmac = { version = "0.13.0", default-features = false }
+hkdf = { version = "0.13.0", default-features = false }
+digest = { version = "0.11.3", default-features = false }
+shake = { version = "0.1.0", default-features = false }
+
+# Elliptic curve.
+x25519-dalek = { version = "3.0.0", default-features = false, features = ["precomputed-tables", "static_secrets"] }
+# `hazmat` exposes signing with an expanded secret key, which hidden-service
+# descriptor key blinding needs (see `src/hsblind.rs`): a blinded secret scalar
+# has no 32-byte seed to feed the ordinary signing API.
+ed25519-dalek = { version = "3.0.0", default-features = false, features = ["fast", "hazmat"] }
+# Direct dependency for the point/scalar arithmetic key blinding needs (it was
+# already in the build through the dalek crates above).
+curve25519-dalek = { version = "5.0.0", default-features = false, features = ["precomputed-tables"] }
+subtle = { version = "2.6.0", default-features = false }
+
+# Security audit fix (2026-09-26): already vendored (transitive dependency
+# of the dalek crates above, which zeroize their own internal state), added
+# directly here so this crate's own long-lived key material -- session
+# AEAD/MAC keys, per-hop layer keys, and identity/master private keys -- is
+# wiped on drop too, not just the third-party crates'.
+#
+# `features = ["alloc"]` (2026-09-26, follow-up): without it, `Vec<u8>`
+# doesn't itself implement `Zeroize` -- a bare `.zeroize()` method call on
+# one still compiled anyway (silently resolved via auto-deref to the
+# `[u8]` slice impl instead), but `Zeroizing<Vec<u8>>` needs `Vec<u8>:
+# Zeroize` as an actual trait bound, which only the `alloc` feature
+# provides.
+zeroize = { version = "1", default-features = false, features = ["alloc"] }
+
+# Signal handling for the CLI binary (SIGINT/SIGTERM -> clean shutdown),
+# mirroring allium_cli.py's `signal.signal(signal.SIGTERM, ...)` plus
+# Python's own default SIGINT-as-KeyboardInterrupt behavior. Already
+# present in the vendored tree as a transitive dependency of several
+# crypto crates; used directly here rather
+# than vendoring a higher-level signal-handling crate for what is a
+# handful of raw libc calls.
+libc = { version = "0.2.189", default-features = false }
+
+# OS CSPRNG (osrand.rs) -- calls the real getrandom(2) syscall (or platform
+# equivalent) instead of hand-opening /dev/urandom.
+getrandom = { version = "0.4.3", default-features = false }
+
+[profile.dev]
+opt-level = 1

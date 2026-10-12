@@ -1,0 +1,15 @@
+[package]
+name = "allium-relay-cli"
+version = "0.1.0"
+edition = "2021"
+
+# NOTE (same dependency policy as allium/Cargo.toml -- see its own NOTE, and
+# /home/claude/rust2/PROGRESS.md): this sandbox has no crates.io access, so
+# `clap`/`tokio` cannot actually be fetched here. main.rs is written against
+# clap 4's well-documented derive API and is "written but unverified pending
+# a real cargo build" like every tokio-touching piece of the `allium` crate
+# itself.
+[dependencies]
+allium = { path = "../allium" }
+clap = { version = "4", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }

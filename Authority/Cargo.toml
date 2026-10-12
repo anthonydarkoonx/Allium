@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = ["allium", "allium-authority-cli"]
+
+# Safe, purely compile-time speedups for a crypto/networking-heavy binary --
+# no behavior change, just a slower/better release build. Not set:
+# panic = "abort" (would crash the whole process on any task panic instead
+# of tokio isolating it to that one task -- not worth the throughput for a
+# server).
+[profile.release]
+lto = "thin"
+codegen-units = 1
