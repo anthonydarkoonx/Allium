@@ -58,8 +58,7 @@ server.
 
 ## Building
 
-Rust 1.85 or newer. No network access is needed for the client crate; its
-dependencies are vendored under `vendor/`.
+Rust 1.85 or newer.  `vendor/`.
 
 ```bash
 ./build.sh all --release      # verifies vendor/ first, then builds all three
